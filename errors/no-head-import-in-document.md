@@ -1,8 +1,10 @@
 # No Head Import in Document
 
+> Prevent usage of `next/head` in `pages/_document.js`.
+
 ### Why This Error Occurred
 
-`next/head` was imported in `pages/_document.js`. This can cause unexpected issues in your application.
+`next/head` should not be imported in `pages/_document.js`. This can cause unexpected issues in your application.
 
 ### Possible Ways to Fix It
 

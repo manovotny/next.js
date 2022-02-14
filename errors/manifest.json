@@ -5,6 +5,18 @@
       "heading": true,
       "routes": [
         {
+          "path": "/errors/no-script-in-document-page.md",
+          "redirect": {
+            "destination": "/errors/no-script-in-document.md"
+          }
+        },
+        {
+          "path": "/errors/no-script-in-head-component.md",
+          "redirect": {
+            "destination": "/errors/no-script-in-head.md"
+          }
+        },
+        {
           "title": "react-hydration-error",
           "path": "/errors/react-hydration-error.md"
         },
@@ -478,11 +490,11 @@
         },
         {
           "title": "script-in-document-page",
-          "path": "/errors/no-script-in-document-page.md"
+          "path": "/errors/no-script-in-document.md"
         },
         {
           "title": "script-in-head-component",
-          "path": "/errors/no-script-in-head-component.md"
+          "path": "/errors/no-script-in-head.md"
         },
         {
           "title": "max-custom-routes-reached",

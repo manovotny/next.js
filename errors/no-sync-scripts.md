@@ -1,12 +1,14 @@
 # No Sync Scripts
 
+> Prevent synchronous scripts.
+
 ### Why This Error Occurred
 
-A synchronous script was used which can impact your webpage's performance.
+A synchronous script was used which can impact your webpage performance.
 
 ### Possible Ways to Fix It
 
-#### Script component (experimental)
+#### Script component (recommended)
 
 Use the Script component with the right loading strategy to defer loading of the script until necessary.
 
@@ -23,6 +25,13 @@ const Home = () => {
 }
 
 export default Home
+```
+
+#### Use `async` or `defer`
+
+```html
+<script src="https://third-party-script.js" async></script>
+<script src="https://third-party-script.js" defer></script>
 ```
 
 ### Useful Links
