@@ -5,9 +5,22 @@ import { retry } from 'next-test-utils'
 // and rendering must stay correct. Webpack always renders SSR, so it must behave
 // identically.
 describe('app dir - dev skip ssr on navigation', () => {
-  const { next } = nextTestSetup({
+  const { next, isTurbopack } = nextTestSetup({
     files: __dirname,
   })
+
+  // Reads the client-reference manifest that the most recent compile of
+  // `/other` wrote to disk, to distinguish the SSR-free `rscEndpoint` output
+  // (empty `ssrModuleMapping`) from the full `htmlEndpoint` output.
+  async function loadOtherPageClientReferenceManifest() {
+    const source = await next.readFile(
+      '.next/dev/server/app/other/page_client-reference-manifest.js'
+    )
+    const scope = { __RSC_MANIFEST: {} as Record<string, any> }
+    // eslint-disable-next-line no-new-func
+    new Function('globalThis', source)(scope)
+    return scope.__RSC_MANIFEST['/other/page']
+  }
 
   it('server-renders the initial page as full HTML', async () => {
     const $ = await next.render$('/')
@@ -45,6 +58,16 @@ describe('app dir - dev skip ssr on navigation', () => {
         'other count: 1'
       )
     })
+
+    if (isTurbopack) {
+      // The route was only ever soft-navigated to, so it must have been
+      // compiled by the SSR-free `rscEndpoint`: client and RSC module mappings
+      // are emitted, but no Client Component SSR chunks were built.
+      const manifest = await loadOtherPageClientReferenceManifest()
+      expect(Object.keys(manifest.clientModules).length).toBeGreaterThan(0)
+      expect(Object.keys(manifest.rscModuleMapping).length).toBeGreaterThan(0)
+      expect(manifest.ssrModuleMapping).toEqual({})
+    }
   })
 
   it('hard-loads a route that was previously only soft-navigated with full SSR HTML', async () => {
@@ -63,5 +86,12 @@ describe('app dir - dev skip ssr on navigation', () => {
     expect($('#other-text').text()).toBe('server rendered text on other')
     expect($('#other-button').text()).toContain('other count: 0')
     expect($('html').length).toBe(1)
+
+    if (isTurbopack) {
+      // The hard load recompiled the route via the full `htmlEndpoint`, which
+      // emits the SSR module mapping again.
+      const manifest = await loadOtherPageClientReferenceManifest()
+      expect(Object.keys(manifest.ssrModuleMapping).length).toBeGreaterThan(0)
+    }
   })
 })

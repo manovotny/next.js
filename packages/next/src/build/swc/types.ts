@@ -387,8 +387,14 @@ export type Route =
     }
 
 export interface Endpoint {
-  /** Write files for the endpoint to disk. */
-  writeToDisk(): Promise<TurbopackResult<WrittenEndpoint>>
+  /**
+   * Write files for the endpoint to disk.
+   *
+   * When `rscOnly` is true, an app page is compiled without its Client
+   * Component SSR chunks unless it has previously been written for a
+   * document render.
+   */
+  writeToDisk(rscOnly?: boolean): Promise<TurbopackResult<WrittenEndpoint>>
 
   /**
    * Listen to client-side changes to the endpoint.
