@@ -107,4 +107,47 @@ describe('adapter-partial-fallback', () => {
     expect(generatedDashedPrerender.config.partialFallback).toBeUndefined()
     expect(generatedDashedPrerender.config.allowQuery).toEqual([])
   })
+
+  it('should exclude never-prerenderable params from allowQuery for blocking routes with empty shells', async () => {
+    const { outputs }: Parameters<NextAdapter['onBuildComplete']>[0] =
+      await next.readJSON('build-complete.json')
+
+    const genericEmptyShellPrerender = outputs.prerenders.find(
+      (output) => output.pathname === '/empty-shell/[one]/[two]'
+    )
+    const genericEmptyShellDataPrerender = outputs.prerenders.find(
+      (output) => output.pathname === '/empty-shell/[one]/[two].rsc'
+    )
+    const genericEmptyShellSegmentPrerenders = outputs.prerenders.filter(
+      (output) =>
+        output.pathname.startsWith('/empty-shell/[one]/[two].segments/')
+    )
+    const generatedEmptyShellPrerender = outputs.prerenders.find(
+      (output) => output.pathname === '/empty-shell/a/[two]'
+    )
+
+    expect(genericEmptyShellPrerender).toBeDefined()
+    expect(genericEmptyShellDataPrerender).toBeDefined()
+    expect(genericEmptyShellSegmentPrerenders.length).toBeGreaterThan(0)
+    expect(generatedEmptyShellPrerender).toBeDefined()
+
+    // The generic route's empty build-time shell downgraded it to a blocking
+    // route (no servable fallback), but `two` is still never provided by
+    // generateStaticParams: an on-demand render must only complete `one`, so
+    // only `one` may be part of the cache key. Including `two` would create a
+    // cache entry per `two` value and resolve `two` into cached content.
+    expect(genericEmptyShellPrerender.config.allowQuery).toEqual(['nxtPone'])
+    expect(genericEmptyShellDataPrerender.config.allowQuery).toEqual([
+      'nxtPone',
+    ])
+    for (const output of genericEmptyShellSegmentPrerenders) {
+      expect(output.config.allowQuery).toEqual(['nxtPone'])
+    }
+
+    // The generated route is already the most specific prerenderable shell
+    // (only the never-prerenderable `two` remains), so it stays a single
+    // shared entry.
+    expect(generatedEmptyShellPrerender.config.partialFallback).toBeUndefined()
+    expect(generatedEmptyShellPrerender.config.allowQuery).toEqual([])
+  })
 })
