@@ -2342,6 +2342,20 @@ export function beginLockedNavigation(): NavigationLock {
   return null
 }
 
+/**
+ * Helper for the Instant Navigation Testing API. Called during a history
+ * traversal: resets the testing lock to a fresh pending scope, releasing any
+ * withheld data from prior navigations. See `resetNavigationLockToPending` in
+ * `navigation-testing-lock`.
+ */
+export function resetNavigationLockToPending(): void {
+  if (process.env.__NEXT_EXPOSE_TESTING_API) {
+    const { resetNavigationLockToPending: reset } =
+      require('../segment-cache/navigation-testing-lock') as typeof import('../segment-cache/navigation-testing-lock')
+    reset()
+  }
+}
+
 async function waitForNavigationLock(lock: NavigationLock): Promise<void> {
   if (process.env.__NEXT_EXPOSE_TESTING_API) {
     const { waitForNavigationLockIfActive } =

@@ -65,6 +65,8 @@ export function beginLockedNavigation(): NavigationLockState | null {
   return null
 }
 
+export function resetNavigationLockToPending(): void {}
+
 export function shouldRestrictNavigationToShell(
   _rootPrefetchHints: number,
   _linkFetchStrategy: FetchStrategy
