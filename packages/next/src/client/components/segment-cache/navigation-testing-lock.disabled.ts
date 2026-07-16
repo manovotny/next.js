@@ -61,6 +61,10 @@ export function getCurrentNavigationLock(): NavigationLockState | null {
   return null
 }
 
+export function beginLockedNavigation(): NavigationLockState | null {
+  return null
+}
+
 export function shouldRestrictNavigationToShell(
   _rootPrefetchHints: number,
   _linkFetchStrategy: FetchStrategy

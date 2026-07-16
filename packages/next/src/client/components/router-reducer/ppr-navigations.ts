@@ -1782,6 +1782,15 @@ async function fetchMissingDynamicData(
   seed: NavigationSeed | null
 }> {
   try {
+    // Instant Navigation Testing API: snapshot the lock's withheld-data gate
+    // now, at spawn time. `beginLockedNavigation` replaces the gate whenever a
+    // newer locked navigation begins, so waiting on a promise created only
+    // after the response arrives could re-gate this write behind the newer
+    // navigation instead of being released by it.
+    const navigationLockReleased = process.env.__NEXT_EXPOSE_TESTING_API
+      ? waitForNavigationLock(navigationLock)
+      : null
+
     const result = await fetchServerResponse(url, {
       flightRouterState: dynamicRequestTree,
       nextUrl,
@@ -1812,8 +1821,8 @@ async function fetchMissingDynamicData(
     // If the navigation lock is active, wait for it to be released before
     // writing the dynamic data. This allows tests to assert on the prefetched
     // UI state.
-    if (process.env.__NEXT_EXPOSE_TESTING_API) {
-      await waitForNavigationLock(navigationLock)
+    if (navigationLockReleased !== null) {
+      await navigationLockReleased
     }
 
     // TODO: Implement Shell extraction as part of Cached Navigations.
@@ -2311,6 +2320,24 @@ export function getCurrentNavigationLock(): NavigationLock {
     const { getCurrentNavigationLock: getCurrentLock } =
       require('../segment-cache/navigation-testing-lock') as typeof import('../segment-cache/navigation-testing-lock')
     return getCurrentLock()
+  }
+  return null
+}
+
+/**
+ * Helper for the Instant Navigation Testing API. Signals that a new locked
+ * navigation is beginning: force-resolves the previous locked navigation's
+ * withheld-data gate (without ending the scope) and returns a fresh gate for
+ * this navigation, which the caller threads to its dynamic-data write. See
+ * `beginLockedNavigation` in `navigation-testing-lock`.
+ *
+ * Not exposed in production builds by default.
+ */
+export function beginLockedNavigation(): NavigationLock {
+  if (process.env.__NEXT_EXPOSE_TESTING_API) {
+    const { beginLockedNavigation: begin } =
+      require('../segment-cache/navigation-testing-lock') as typeof import('../segment-cache/navigation-testing-lock')
+    return begin()
   }
   return null
 }

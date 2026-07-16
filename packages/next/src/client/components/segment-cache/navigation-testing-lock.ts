@@ -119,9 +119,10 @@ export type NavigationLockPrefetch = {
 }
 
 export type NavigationLockState = {
-  // Resolves when the lock is released (the testing scope ends). The dynamic-
-  // data write during a locked navigation waits on this; see
-  // `getCurrentNavigationLock` and `waitForNavigationLockIfActive`.
+  // Resolves when the lock is released (the testing scope ends). Out-of-band
+  // user fetches blocked by `globalFetchOverride` wait on this so they dispatch
+  // only once the scope ends. (A locked navigation's *withheld dynamic write*
+  // waits on `currentNavigation` instead — see below.)
   released: Promise<void>
   resolveReleased: () => void
   // The pre-lock `window.fetch`, captured at `acquireLock` time and
@@ -140,6 +141,17 @@ export type NavigationLockState = {
   // entry left in the cache by an earlier navigation or prefetch. See
   // `readSegmentCacheEntryForNavigation`.
   ownedEntries: Set<SegmentCacheEntry>
+  // The withheld-data gate for the current locked navigation. A locked
+  // navigation's dynamic write waits on this (via `waitForNavigationLockIfActive`)
+  // rather than on the scope-wide `released`. `beginLockedNavigation` rolls it
+  // over on each new locked navigation: it resolves the current promise — so the
+  // *previous* navigation's withheld data is written out and the cache nodes it
+  // produced stop holding pending deferred promises that a reused shared segment
+  // would otherwise suspend on — then installs a fresh one. `releaseLock`
+  // resolves it too. Net effect: only the most recent navigation's data stays
+  // withheld; a new navigation always releases the previous one.
+  currentNavigation: Promise<void>
+  resolveCurrentNavigation: () => void
 }
 
 let lockState: NavigationLockState | null = null
@@ -250,12 +262,18 @@ function acquireLock(): void {
   const released = new Promise<void>((r) => {
     resolveReleased = r
   })
+  let resolveCurrentNavigation: () => void
+  const currentNavigation = new Promise<void>((r) => {
+    resolveCurrentNavigation = r
+  })
   lockState = {
     released,
     resolveReleased: resolveReleased!,
     fetch: window.fetch,
     activePrefetches: new Set(),
     ownedEntries: new Set(),
+    currentNavigation,
+    resolveCurrentNavigation: resolveCurrentNavigation!,
   }
 
   // Install the fetch blocker. We only intercept `window.fetch` for the
@@ -271,15 +289,50 @@ function releaseLock(): void {
   // Restore the pre-lock `window.fetch` before resolving the lock promise
   // so any fetches queued on the promise see the restored fetch.
   window.fetch = lockState.fetch
-  const { resolveReleased, activePrefetches } = lockState
+  const { resolveReleased, activePrefetches, resolveCurrentNavigation } =
+    lockState
   lockState = null
   // Force-resolve every prefetch that hasn't finished, so a navigation still
   // waiting on one doesn't hang now that the scope is ending.
   for (const prefetch of activePrefetches) {
     prefetch.resolve()
   }
-  // Resolve the release promise so a gated dynamic write unblocks too.
+  // Resolve the current locked navigation's withheld-data gate, so its gated
+  // dynamic write unblocks now that the scope is ending.
+  resolveCurrentNavigation()
+  // Resolve the release promise so blocked out-of-band fetches dispatch too.
   resolveReleased()
+}
+
+/**
+ * Called when a new locked navigation begins (from `navigate` while the lock is
+ * held). Rolls over the lock's withheld-data gate: it resolves the current
+ * `currentNavigation` promise — so the *previous* locked navigation's withheld
+ * dynamic write proceeds and the cache nodes it produced stop holding pending
+ * deferred `rsc` promises that a reused shared segment in this navigation would
+ * otherwise suspend on — then installs a fresh promise for this navigation.
+ * Only the most recent navigation's data stays withheld; a new navigation
+ * always releases the previous one. Returns the lock (whose `currentNavigation`
+ * this navigation's dynamic write waits on), or null when no lock is held.
+ *
+ * This is the testing-lock behavior for repeated navigations while paused. It
+ * is not a principled fix for the underlying `useDeferredValue`/reuse-suspend
+ * behavior; it just ensures that, under the lock, a reused segment never
+ * carries a still-pending deferred `rsc` from an earlier navigation.
+ */
+export function beginLockedNavigation(): NavigationLockState | null {
+  if (lockState === null) {
+    return null
+  }
+  // Release the previous locked navigation's withheld data, then roll over to a
+  // fresh gate for this navigation — all without ending the scope.
+  lockState.resolveCurrentNavigation()
+  let resolveCurrentNavigation: () => void
+  lockState.currentNavigation = new Promise<void>((r) => {
+    resolveCurrentNavigation = r
+  })
+  lockState.resolveCurrentNavigation = resolveCurrentNavigation!
+  return lockState
 }
 
 /**
@@ -478,13 +531,18 @@ export function shouldRestrictNavigationToShell(
 }
 
 /**
- * Waits for the navigation lock to be released, if it's currently held.
- * No-op if the lock is not acquired.
+ * Gates a locked navigation's withheld dynamic-data write. If the lock is held,
+ * waits until this navigation's `currentNavigation` gate resolves — which
+ * happens when a newer locked navigation begins (releasing this one) or when the
+ * lock is released. No-op if the lock is not acquired.
  */
 export async function waitForNavigationLockIfActive(
   lock: NavigationLockState | null = getCurrentNavigationLock()
 ): Promise<void> {
   if (lock !== null) {
-    await lock.released
+    // Wait on the current navigation's gate, not the scope-wide `released`, so a
+    // newer locked navigation releases this one's withheld data (and `releaseLock`
+    // resolves it on unlock).
+    await lock.currentNavigation
   }
 }

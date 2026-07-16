@@ -17,7 +17,7 @@ import {
   startPPRNavigation,
   spawnDynamicRequests,
   FreshnessPolicy,
-  getCurrentNavigationLock,
+  beginLockedNavigation,
   type NavigationLock,
   type NavigationRequestAccumulation,
 } from '../router-reducer/ppr-navigations'
@@ -80,7 +80,11 @@ export function navigate(
     const { isNavigationLocked } =
       require('./navigation-testing-lock') as typeof import('./navigation-testing-lock')
     if (isNavigationLocked()) {
-      navigationLock = getCurrentNavigationLock()
+      // Signal that a new locked navigation is starting. This force-resolves the
+      // previous locked navigation's withheld data (so a reused shared segment
+      // no longer carries a pending deferred rsc) and returns this navigation's
+      // own withheld-data gate.
+      navigationLock = beginLockedNavigation()
       return ensurePrefetchThenNavigate(
         state,
         url,
