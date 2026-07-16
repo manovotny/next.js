@@ -72,7 +72,7 @@ describe('NEXT_HASH_SALT', () => {
   })
 })
 
-describe('experimental.outputHashSalt', () => {
+describe('outputHashSalt', () => {
   // Uses the fixture's next.config.js which reads OUTPUT_HASH_SALT_CONFIG from env,
   // allowing multiple builds with different config salts from a single next instance.
   const { next } = nextTestSetup({

@@ -466,17 +466,6 @@ export function resolveCssChunkingMode(
 }
 
 export interface ExperimentalConfig {
-  /**
-   * A string that is incorporated into content-addressed output filenames
-   * (chunks, assets) for both Webpack and Turbopack. Changing this value
-   * forces all output hashes to change, which is useful for invalidating
-   * cached assets across deployments without modifying source files.
-   *
-   * When `NEXT_HASH_SALT` environment variable is also set, the two values are
-   * concatenated (`outputHashSalt + NEXT_HASH_SALT`) to form the effective salt.
-   */
-  outputHashSalt?: string
-
   appNewScrollHandler?: boolean
   /**
    * Shows a persistent "Cold cache" badge in the dev overlay after a load that
@@ -1967,6 +1956,17 @@ export interface NextConfig {
    * were not detected on a per-page basis.
    */
   outputFileTracingIncludes?: Record<string, string[]>
+
+  /**
+   * A string that is incorporated into content-addressed output filenames
+   * (chunks, assets) for both Webpack and Turbopack. Changing this value
+   * forces all output hashes to change, which is useful for invalidating
+   * cached assets across deployments without modifying source files.
+   *
+   * When `NEXT_HASH_SALT` environment variable is also set, the two values are
+   * concatenated (`outputHashSalt + NEXT_HASH_SALT`) to form the effective salt.
+   */
+  outputHashSalt?: string
 
   watchOptions?: {
     pollIntervalMs?: number

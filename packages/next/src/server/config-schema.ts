@@ -190,7 +190,6 @@ const zTurbopackConfig: zod.ZodType<TurbopackOptions> = z.strictObject({
 })
 
 export const experimentalSchema = {
-  outputHashSalt: z.string().optional(),
   useSkewCookie: z.boolean().optional(),
   after: z.boolean().optional(),
   appNavFailHandling: z.boolean().optional(),
@@ -782,6 +781,7 @@ export const configSchema: zod.ZodType<NextConfig> = z.lazy(() =>
     outputFileTracingIncludes: z
       .record(z.string(), z.array(z.string()))
       .optional(),
+    outputHashSalt: z.string().optional(),
     pageExtensions: z.array(z.string()).min(1).optional(),
     instrumentationClientInject: z.array(z.string()).optional(),
     partialPrefetching: z
